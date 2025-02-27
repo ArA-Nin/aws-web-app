@@ -1,0 +1,55 @@
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+import pyodbc
+from typing import List
+
+app = FastAPI()
+
+# CORS settings
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Database connection function
+def get_db_connection(username: str, password: str):
+    server = "maestriasqlserver.database.windows.net"
+    database = "maskingsql"
+    driver = "{ODBC Driver 17 for SQL Server}"
+    conn_str = f"DRIVER={driver};SERVER={server};DATABASE={database};UID={arielnin};PWD={dIf6mmwpFp_b}"
+    try:
+        conn = pyodbc.connect(conn_str)
+        return conn
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Database connection failed: {str(e)}")
+
+# Request model for authentication
+class AuthRequest(BaseModel):
+    username: str
+    password: str
+
+# Endpoint to authenticate and get available tables
+@app.post("/tables")
+def get_tables(auth: AuthRequest):
+    conn = get_db_connection(auth.username, auth.password)
+    cursor = conn.cursor()
+    cursor.execute("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE='BASE TABLE'")
+    tables = [row[0] for row in cursor.fetchall()]
+    conn.close()
+    return {"tables": tables}
+
+# Endpoint to fetch data from a selected table
+@app.post("/table_data")
+def get_table_data(auth: AuthRequest, table_name: str):
+    conn = get_db_connection(auth.username, auth.password)
+    cursor = conn.cursor()
+    query = f"SELECT * FROM {table_name}"
+    cursor.execute(query)
+    columns = [column[0] for column in cursor.description]
+    data = [dict(zip(columns, row)) for row in cursor.fetchall()]
+    conn.close()
+    return {"columns": columns, "data": data}
