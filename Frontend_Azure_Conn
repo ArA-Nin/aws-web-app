@@ -1,0 +1,83 @@
+import React, { useState } from "react";
+import axios from "axios";
+
+const App = () => {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [tables, setTables] = useState([]);
+  const [selectedTable, setSelectedTable] = useState("");
+  const [tableData, setTableData] = useState(null);
+
+  const handleLogin = async () => {
+    try {
+      const response = await axios.post("http://localhost:8000/tables", {
+        username,
+        password,
+      });
+      setTables(response.data.tables);
+    } catch (error) {
+      alert("Failed to authenticate: " + error.response.data.detail);
+    }
+  };
+
+  const fetchTableData = async (tableName) => {
+    try {
+      const response = await axios.post("http://localhost:8000/table_data", {
+        username,
+        password,
+      }, { params: { table_name: tableName } });
+      setSelectedTable(tableName);
+      setTableData(response.data);
+    } catch (error) {
+      alert("Failed to fetch table data: " + error.response.data.detail);
+    }
+  };
+
+  return (
+    <div className="p-4">
+      <h1 className="text-xl font-bold mb-4">Azure MSSQL Database Viewer</h1>
+      <div className="mb-4">
+        <input className="border p-2 mr-2" type="text" placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} />
+        <input className="border p-2 mr-2" type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        <button className="bg-blue-500 text-white p-2" onClick={handleLogin}>Connect</button>
+      </div>
+      {tables.length > 0 && (
+        <div>
+          <h2 className="text-lg font-semibold">Available Tables</h2>
+          <ul>
+            {tables.map((table) => (
+              <li key={table} className="cursor-pointer text-blue-500" onClick={() => fetchTableData(table)}>
+                {table}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {tableData && (
+        <div>
+          <h2 className="text-lg font-semibold">Table: {selectedTable}</h2>
+          <table className="table-auto border-collapse border border-gray-400 mt-2">
+            <thead>
+              <tr>
+                {tableData.columns.map((col) => (
+                  <th key={col} className="border border-gray-400 p-2">{col}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {tableData.data.map((row, idx) => (
+                <tr key={idx}>
+                  {tableData.columns.map((col) => (
+                    <td key={col} className="border border-gray-400 p-2">{row[col]}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default App;
